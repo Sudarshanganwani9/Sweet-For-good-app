@@ -12,7 +12,7 @@ import { useAuth } from "@/lib/auth-context";
 export default function Auth() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [mode, setMode] = useState<"signin" | "signup">(params.get("mode") === "signup" ? "signup" : "signin");
   const [accountType, setAccountType] = useState<"user" | "admin">("user");
   const [email, setEmail] = useState("");
@@ -22,15 +22,24 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (user) navigate("/dashboard");
-  }, [user, navigate]);
+    if (user) navigate(isAdmin && accountType === "admin" ? "/admin" : "/dashboard");
+  }, [user, isAdmin, accountType, navigate]);
+
+  async function ensureAdminRole(code: string) {
+    const { data, error } = await supabase.functions.invoke("promote-admin", {
+      body: { code },
+    });
+    if (error || (data as any)?.error) {
+      throw new Error((data as any)?.error || error?.message || "Invalid admin code");
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     try {
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
+        const { data: signUpData, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -39,16 +48,15 @@ export default function Auth() {
           },
         });
         if (error) throw error;
-        // Auto-confirm is enabled — sign the user in immediately.
-        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-        if (signInError) throw signInError;
+
+        const alreadySignedIn = Boolean(signUpData.session);
+        if (!alreadySignedIn) {
+          const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+          if (signInError) throw signInError;
+        }
+
         if (accountType === "admin") {
-          const { data, error: promErr } = await supabase.functions.invoke("promote-admin", {
-            body: { code: adminCode },
-          });
-          if (promErr || (data as any)?.error) {
-            throw new Error((data as any)?.error || promErr?.message || "Invalid admin code");
-          }
+          await ensureAdminRole(adminCode);
           toast.success("Admin account created — welcome!");
           navigate("/admin");
         } else {
@@ -59,7 +67,7 @@ export default function Auth() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         if (accountType === "admin") {
-          // Verify the user actually has admin role.
+          if (adminCode) await ensureAdminRole(adminCode);
           const { data: sessionData } = await supabase.auth.getSession();
           const uid = sessionData.session?.user.id;
           const { data: roles } = await supabase
@@ -70,7 +78,7 @@ export default function Auth() {
             .maybeSingle();
           if (!roles) {
             await supabase.auth.signOut();
-            throw new Error("This account does not have admin access.");
+            throw new Error("This account does not have admin access. Enter the admin access code and try again.");
           }
           toast.success("Welcome back, Admin!");
           navigate("/admin");
