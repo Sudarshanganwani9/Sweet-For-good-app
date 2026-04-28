@@ -20,3 +20,9 @@ A modern web application designed to promote and manage sweet distribution for s
 ## 📂 Project Structure
 
 Sweet-For-Good/ │── client/        # Frontend code │── server/        # Backend code │── public/        # Static assets │── src/           # Main source files │── package.json
+
+## ⚙️ Installation
+
+1. Clone the repository
+```bash
+git clone https://github.com/your-username/sweet-for-good.git
