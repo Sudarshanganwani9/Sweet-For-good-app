@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Heart } from "lucide-react";
+import { Heart, User, Shield } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,9 +14,11 @@ export default function Auth() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [mode, setMode] = useState<"signin" | "signup">(params.get("mode") === "signup" ? "signup" : "signin");
+  const [accountType, setAccountType] = useState<"user" | "admin">("user");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [adminCode, setAdminCode] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -40,13 +42,42 @@ export default function Auth() {
         // Auto-confirm is enabled — sign the user in immediately.
         const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
         if (signInError) throw signInError;
-        toast.success("Account created — welcome!");
-        navigate("/dashboard");
+        if (accountType === "admin") {
+          const { data, error: promErr } = await supabase.functions.invoke("promote-admin", {
+            body: { code: adminCode },
+          });
+          if (promErr || (data as any)?.error) {
+            throw new Error((data as any)?.error || promErr?.message || "Invalid admin code");
+          }
+          toast.success("Admin account created — welcome!");
+          navigate("/admin");
+        } else {
+          toast.success("Account created — welcome!");
+          navigate("/dashboard");
+        }
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        toast.success("Welcome back!");
-        navigate("/dashboard");
+        if (accountType === "admin") {
+          // Verify the user actually has admin role.
+          const { data: sessionData } = await supabase.auth.getSession();
+          const uid = sessionData.session?.user.id;
+          const { data: roles } = await supabase
+            .from("user_roles")
+            .select("role")
+            .eq("user_id", uid!)
+            .eq("role", "admin")
+            .maybeSingle();
+          if (!roles) {
+            await supabase.auth.signOut();
+            throw new Error("This account does not have admin access.");
+          }
+          toast.success("Welcome back, Admin!");
+          navigate("/admin");
+        } else {
+          toast.success("Welcome back!");
+          navigate("/dashboard");
+        }
       }
     } catch (err: any) {
       const msg = err?.message ?? "Something went wrong";
@@ -85,6 +116,27 @@ export default function Auth() {
           {mode === "signup" ? "Join the movement in 30 seconds." : "Sign in to your dashboard."}
         </p>
 
+        <div className="grid grid-cols-2 gap-2 p-1 rounded-xl bg-muted/40 mb-6">
+          <button
+            type="button"
+            onClick={() => setAccountType("user")}
+            className={`flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition ${
+              accountType === "user" ? "bg-gradient-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <User className="w-4 h-4" /> User
+          </button>
+          <button
+            type="button"
+            onClick={() => setAccountType("admin")}
+            className={`flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition ${
+              accountType === "admin" ? "bg-gradient-primary text-primary-foreground shadow" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Shield className="w-4 h-4" /> Admin
+          </button>
+        </div>
+
         <form onSubmit={handleSubmit} className="space-y-4">
           {mode === "signup" && (
             <div>
@@ -100,6 +152,22 @@ export default function Auth() {
             <Label htmlFor="password">Password</Label>
             <Input id="password" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
           </div>
+          {mode === "signup" && accountType === "admin" && (
+            <div>
+              <Label htmlFor="adminCode">Admin access code</Label>
+              <Input
+                id="adminCode"
+                type="password"
+                required
+                value={adminCode}
+                onChange={(e) => setAdminCode(e.target.value)}
+                placeholder="Enter the secret admin code"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Required to create an admin account. Ask the platform owner if you don't have it.
+              </p>
+            </div>
+          )}
           <Button type="submit" variant="hero" size="lg" className="w-full" disabled={loading}>
             {loading ? "Please wait…" : mode === "signup" ? "Create account" : "Sign in"}
           </Button>
