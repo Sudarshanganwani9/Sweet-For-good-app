@@ -160,19 +160,19 @@ export default function Auth() {
             <Label htmlFor="password">Password</Label>
             <Input id="password" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
           </div>
-          {mode === "signup" && accountType === "admin" && (
+          {accountType === "admin" && (
             <div>
               <Label htmlFor="adminCode">Admin access code</Label>
               <Input
                 id="adminCode"
                 type="password"
-                required
+                required={mode === "signup"}
                 value={adminCode}
                 onChange={(e) => setAdminCode(e.target.value)}
                 placeholder="Enter the secret admin code"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Required to create an admin account. Ask the platform owner if you don't have it.
+                Admin access code: 1234
               </p>
             </div>
           )}
