@@ -37,8 +37,11 @@ export default function Auth() {
           },
         });
         if (error) throw error;
-        toast.success("Account created — check your email if confirmation is required, or sign in.");
-        setMode("signin");
+        // Auto-confirm is enabled — sign the user in immediately.
+        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+        if (signInError) throw signInError;
+        toast.success("Account created — welcome!");
+        navigate("/dashboard");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -46,7 +49,15 @@ export default function Auth() {
         navigate("/dashboard");
       }
     } catch (err: any) {
-      toast.error(err.message ?? "Something went wrong");
+      const msg = err?.message ?? "Something went wrong";
+      if (/invalid login credentials/i.test(msg)) {
+        toast.error("Email ya password galat hai. Dobara try karein, ya 'Create one' se naya account banayein.");
+      } else if (/already registered|already been registered|user already/i.test(msg)) {
+        toast.error("Yeh email pehle se registered hai. Sign in karein.");
+        setMode("signin");
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setLoading(false);
     }
