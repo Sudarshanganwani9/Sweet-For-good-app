@@ -66,7 +66,6 @@ Deno.serve(async (req) => {
         user_metadata: { display_name: displayName },
       });
       if (updateError) throw updateError;
-      userId = created.user?.id;
     }
 
     if (!userId) return json({ error: "Could not prepare account." }, 500);
