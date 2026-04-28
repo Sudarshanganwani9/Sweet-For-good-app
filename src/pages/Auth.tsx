@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Heart, User, Shield } from "lucide-react";
+import { Heart, User, Shield, Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,8 @@ export default function Auth() {
   const [displayName, setDisplayName] = useState("");
   const [adminCode, setAdminCode] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showAdminCode, setShowAdminCode] = useState(false);
 
   useEffect(() => {
     if (user) navigate(isAdmin && accountType === "admin" ? "/admin" : "/dashboard");
@@ -172,19 +174,49 @@ export default function Auth() {
           </div>
           <div>
             <Label htmlFor="password">Password</Label>
-            <Input id="password" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                required
+                minLength={6}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((s) => !s)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
           {accountType === "admin" && (
             <div>
               <Label htmlFor="adminCode">Admin access code</Label>
-              <Input
-                id="adminCode"
-                type="password"
-                required={mode === "signup"}
-                value={adminCode}
-                onChange={(e) => setAdminCode(e.target.value)}
-                placeholder="Enter the secret admin code"
-              />
+              <div className="relative">
+                <Input
+                  id="adminCode"
+                  type={showAdminCode ? "text" : "password"}
+                  required={mode === "signup"}
+                  value={adminCode}
+                  onChange={(e) => setAdminCode(e.target.value)}
+                  placeholder="Enter the secret admin code"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowAdminCode((s) => !s)}
+                  aria-label={showAdminCode ? "Hide admin code" : "Show admin code"}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showAdminCode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
               <p className="text-xs text-muted-foreground mt-1">
                 Admin access code: 1234
               </p>
