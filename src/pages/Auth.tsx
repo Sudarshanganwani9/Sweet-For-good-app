@@ -51,10 +51,11 @@ export default function Auth() {
     } catch (err: any) {
       const msg = err?.message ?? "Something went wrong";
       if (/invalid login credentials/i.test(msg)) {
-        toast.error("Email ya password galat hai. Dobara try karein, ya 'Create one' se naya account banayein.");
-      } else if (/already registered|already been registered|user already/i.test(msg)) {
-        toast.error("Yeh email pehle se registered hai. Sign in karein.");
+        toast.error("Incorrect email or password. Please try again.");
+      } else if (/already registered|already been registered|user already|already exists/i.test(msg)) {
+        toast.error("This email is already registered. Please sign in instead.");
         setMode("signin");
+        setPassword("");
       } else {
         toast.error(msg);
       }
