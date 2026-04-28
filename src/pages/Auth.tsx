@@ -73,15 +73,23 @@ export default function Auth() {
         }
         if (error) throw error;
         if (accountType === "admin") {
-          if (adminCode) await ensureAdminRole(adminCode);
           const { data: sessionData } = await supabase.auth.getSession();
           const uid = sessionData.session?.user.id;
-          const { data: roles } = await supabase
+          let { data: roles } = await supabase
             .from("user_roles")
             .select("role")
             .eq("user_id", uid!)
             .eq("role", "admin")
             .maybeSingle();
+          if (!roles && adminCode) {
+            await ensureAdminRole(adminCode);
+            ({ data: roles } = await supabase
+              .from("user_roles")
+              .select("role")
+              .eq("user_id", uid!)
+              .eq("role", "admin")
+              .maybeSingle());
+          }
           if (!roles) {
             await supabase.auth.signOut();
             throw new Error("This account does not have admin access. Enter the admin access code and try again.");

@@ -1,1 +1,7 @@
 project_id = "dbtxspfsbydnztmjnzya"
+
+[functions.promote-admin]
+verify_jwt = false
+
+[functions.password-login]
+verify_jwt = false
