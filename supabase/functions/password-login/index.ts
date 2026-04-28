@@ -39,11 +39,25 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const admin = createClient(supabaseUrl, serviceRoleKey);
 
-    const { data: listed, error: listError } = await admin.auth.admin.listUsers({ page: 1, perPage: 1, filter: email });
-    if (listError) throw listError;
+    let userId = await findUserIdByEmail(admin, email);
 
-    const existingUser = listed.users.find((user) => user.email?.toLowerCase() === email);
-    let userId = existingUser?.id;
+    if (!userId) {
+      const { data: created, error: createError } = await admin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { display_name: displayName },
+      });
+      if (createError) {
+        if (createError.status === 422 || createError.code === "email_exists" || /already.*registered|email.*exists/i.test(createError.message)) {
+          userId = await findUserIdByEmail(admin, email, true);
+        } else {
+          throw createError;
+        }
+      } else {
+        userId = created.user?.id;
+      }
+    }
 
     if (userId) {
       const { error: updateError } = await admin.auth.admin.updateUserById(userId, {
@@ -52,15 +66,6 @@ Deno.serve(async (req) => {
         user_metadata: { display_name: displayName },
       });
       if (updateError) throw updateError;
-    } else {
-      const { data: created, error: createError } = await admin.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: { display_name: displayName },
-      });
-      if (createError) throw createError;
-      userId = created.user?.id;
     }
 
     if (!userId) return json({ error: "Could not prepare account." }, 500);
@@ -97,4 +102,25 @@ function json(body: unknown, status = 200) {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+async function findUserIdByEmail(admin: ReturnType<typeof createClient>, email: string, exhaustive = false) {
+  const normalizedEmail = email.toLowerCase();
+  const { data: filtered, error: filterError } = await admin.auth.admin.listUsers({ page: 1, perPage: 100, filter: normalizedEmail });
+  if (!filterError) {
+    const exact = filtered.users.find((user) => user.email?.toLowerCase() === normalizedEmail);
+    if (exact) return exact.id;
+  }
+
+  if (!exhaustive) return null;
+
+  for (let page = 1; page <= 20; page += 1) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 100 });
+    if (error) throw error;
+    const exact = data.users.find((user) => user.email?.toLowerCase() === normalizedEmail);
+    if (exact) return exact.id;
+    if (data.users.length < 100) break;
+  }
+
+  return null;
 }
