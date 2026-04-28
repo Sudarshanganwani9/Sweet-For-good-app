@@ -34,29 +34,31 @@ export default function Auth() {
     }
   }
 
+  async function preparePasswordLogin() {
+    const { data, error } = await supabase.functions.invoke("password-login", {
+      body: {
+        email,
+        password,
+        displayName: displayName || email.split("@")[0],
+        accountType,
+        adminCode,
+      },
+    });
+    if (error || (data as any)?.error) {
+      throw new Error((data as any)?.error || error?.message || "Could not prepare account");
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     try {
       if (mode === "signup") {
-        const { data: signUpData, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/dashboard`,
-            data: { display_name: displayName || email.split("@")[0] },
-          },
-        });
-        if (error) throw error;
-
-        const alreadySignedIn = Boolean(signUpData.session);
-        if (!alreadySignedIn) {
-          const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-          if (signInError) throw signInError;
-        }
+        await preparePasswordLogin();
+        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+        if (signInError) throw signInError;
 
         if (accountType === "admin") {
-          await ensureAdminRole(adminCode);
           toast.success("Admin account created — welcome!");
           navigate("/admin");
         } else {
@@ -64,7 +66,11 @@ export default function Auth() {
           navigate("/dashboard");
         }
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        let { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error && /invalid login credentials/i.test(error.message)) {
+          await preparePasswordLogin();
+          ({ error } = await supabase.auth.signInWithPassword({ email, password }));
+        }
         if (error) throw error;
         if (accountType === "admin") {
           if (adminCode) await ensureAdminRole(adminCode);
