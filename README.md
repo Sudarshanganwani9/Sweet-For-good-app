@@ -12,7 +12,7 @@ A modern web application designed to promote and manage sweet distribution for s
 
 ## 🛠️ Tech Stack
 
-- Frontend: React.js
+- Frontend: React.js, Typescript 
 - Backend: Node.js / Express.js
 - Database: MongoDB / (your DB)
 - Styling: CSS / Tailwind (update based on your project)
