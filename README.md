@@ -26,3 +26,13 @@ Sweet-For-Good/ │── client/        # Frontend code │── server/      
 1. Clone the repository
 ```bash
 git clone https://github.com/your-username/sweet-for-good.git
+cd sweet-for-good
+npm install
+npm start
+
+## 🌐 Usage
+Open your browser and go to:
+
+http://localhost:3000
+Register / Login
+Create or participate in donation activities
